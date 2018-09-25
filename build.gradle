@@ -7,6 +7,9 @@ buildscript {
             buildTools              : '28.0.3',
             androidGradlePlugin     : '3.3.0-alpha11',
             mavenPublishGradlePlugin: '0.6.0',
+            junit4                  : '4.1.2',
+            testSupport             : '1.0.2',
+            assertj                 : '3.11.1'
     ]
 
     repositories {
@@ -23,6 +26,7 @@ buildscript {
 
 allprojects {
     repositories {
+        mavenCentral()
         google()
         jcenter()
 
