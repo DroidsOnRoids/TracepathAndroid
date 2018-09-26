@@ -71,7 +71,7 @@ __u16 base_port;
 int max_hops = MAX_HOPS_DEFAULT;
 
 int overhead;
-int mtu;
+size_t mtu;
 void *pktbuf;
 int hops_to = -1;
 int hops_from = -1;
@@ -109,9 +109,8 @@ void print_host(const char *a, const char *b, int both, FILE* output)
     fprintf(output, "%*s", HOST_COLUMN_SIZE - plen, "");
 }
 
-int recverr(int fd, struct addrinfo *ai, int ttl, FILE *output)
-{
-    int res;
+ssize_t recverr(int fd, struct addrinfo *ai, int ttl, FILE *output) {
+    ssize_t res;
     struct probehdr rcvbuf;
     char cbuf[512];
     struct iovec  iov;
@@ -124,7 +123,7 @@ int recverr(int fd, struct addrinfo *ai, int ttl, FILE *output)
     int slot = 0;
     int rethops;
     int sndhops;
-    int progress = -1;
+    ssize_t progress = -1;
     int broken_router;
     char hnamebuf[NI_MAXHOST] = "";
 
@@ -323,7 +322,7 @@ int recverr(int fd, struct addrinfo *ai, int ttl, FILE *output)
     goto restart;
 }
 
-int probe_ttl(int fd, struct addrinfo *ai, int ttl, FILE *output)
+ssize_t probe_ttl(int fd, struct addrinfo *ai, uint32_t ttl, FILE *output)
 {
     int i;
     struct probehdr *hdr = pktbuf;
@@ -331,7 +330,7 @@ int probe_ttl(int fd, struct addrinfo *ai, int ttl, FILE *output)
     memset(pktbuf, 0, mtu);
     restart:
     for (i=0; i<10; i++) {
-        int res;
+        ssize_t res;
 
         hdr->ttl = ttl;
         switch (ai->ai_family) {
@@ -377,7 +376,7 @@ static void usage(FILE *output)
     exit(-1);
 }
 
-int tracepath_main(int argc, char **argv, FILE* output)
+int tracepath_main(char *destination, uint16_t port, FILE *output)
 {
     struct addrinfo hints = {
             .ai_family = AF_UNSPEC,
@@ -388,89 +387,23 @@ int tracepath_main(int argc, char **argv, FILE* output)
 #endif
     };
     struct addrinfo *ai, *result;
-    int ch;
     int status;
     int fd;
     int on;
-    int ttl;
-    char *p;
+    uint32_t ttl;
     char pbuf[NI_MAXSERV];
 
 #ifdef USE_IDN
     setlocale(LC_ALL, "");
 #endif
 
-    /* Support being called using `tracepath4` or `tracepath6` symlinks */
-    if (argv[0][strlen(argv[0])-1] == '4')
-        hints.ai_family = AF_INET;
-    else if (argv[0][strlen(argv[0])-1] == '6')
-        hints.ai_family = AF_INET6;
+    base_port = port;
 
-    while ((ch = getopt(argc, argv, "46nbh?l:m:p:")) != EOF) {
-        switch(ch) {
-            case '4':
-                if (hints.ai_family != AF_UNSPEC) {
-                    fprintf(output, "tracepath: Only one -4 or -6 option may be specified\n");
-                    exit(2);
-                }
-                hints.ai_family = AF_INET;
-                break;
-            case '6':
-                if (hints.ai_family != AF_UNSPEC) {
-                    fprintf(output, "tracepath: Only one -4 or -6 option may be specified\n");
-                    exit(2);
-                }
-                hints.ai_family = AF_INET6;
-                break;
-            case 'n':
-                no_resolve = 1;
-                break;
-            case 'b':
-                show_both = 1;
-                break;
-            case 'l':
-                if ((mtu = atoi(optarg)) <= overhead) {
-                    fprintf(output, "Error: pktlen must be > %d and <= %d.\n",
-                            overhead, INT_MAX);
-                    exit(1);
-                }
-                break;
-            case 'm':
-                max_hops = atoi(optarg);
-                if (max_hops < 0 || max_hops > MAX_HOPS_LIMIT) {
-                    fprintf(output,
-                            "Error: max hops must be 0 .. %d (inclusive).\n",
-                            MAX_HOPS_LIMIT);
-                }
-                break;
-            case 'p':
-                base_port = atoi(optarg);
-                break;
-            default:
-                usage(output);
-        }
-    }
-
-    argc -= optind;
-    argv += optind;
-
-    if (argc != 1)
-        usage(output);
-
-    /* Backward compatiblity */
-    if (!base_port) {
-        p = strchr(argv[0], '/');
-        if (p) {
-            *p = 0;
-            base_port = atoi(p+1);
-        } else
-            base_port = 44444;
-    }
     sprintf(pbuf, "%u", base_port);
 
-    status = getaddrinfo(argv[0], pbuf, &hints, &result);
+    status = getaddrinfo(destination, pbuf, &hints, &result);
     if (status) {
-        fprintf(output, "tracepath: %s: %s\n", argv[0], gai_strerror(status));
+        fprintf(output, "tracepath: %s: %s\n", destination, gai_strerror(status));
         exit(1);
     }
 
@@ -556,7 +489,7 @@ setsockopt(fd, SOL_IPV6, IPV6_2292HOPLIMIT, &on, sizeof(on))
     }
 
     for (ttl = 1; ttl <= max_hops; ttl++) {
-        int res;
+        ssize_t res = -1;
         int i;
 
         on = ttl;
@@ -578,7 +511,7 @@ setsockopt(fd, SOL_IPV6, IPV6_2292HOPLIMIT, &on, sizeof(on))
 
         restart:
         for (i=0; i<3; i++) {
-            int old_mtu;
+            size_t old_mtu;
 
             old_mtu = mtu;
             res = probe_ttl(fd, ai, ttl, output);
