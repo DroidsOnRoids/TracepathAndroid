@@ -56,7 +56,7 @@ repositories {
 }
 
 dependencies {
-    implementation 'pl.droidsonroids:tracepath-android:0.0.1-SNAPSHOT'
+    implementation 'pl.droidsonroids:tracepath-android:0.0.2-SNAPSHOT'
 }
 ```
 
