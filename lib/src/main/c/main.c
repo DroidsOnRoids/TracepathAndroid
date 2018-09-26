@@ -1,15 +1,13 @@
 #include <jni.h>
-#include <android/log.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <wait.h>
 #include <stdio.h>
-#include <jni.h>
 #include <math.h>
 #include <errno.h>
 #include "tracepath.h"
 
-jstring JNICALL Java_pl_droidsonroids_tracepath_android_Tracepath_tracepathAscii(JNIEnv *env, __unused jclass type, jstring jDestination) {
+jstring JNICALL Java_pl_droidsonroids_tracepath_android_Tracepath_tracepath(JNIEnv *env, __unused jclass type, jstring jDestination) {
     int pipefd[2];
     int res = pipe(pipefd);
     if (res != 0) {
