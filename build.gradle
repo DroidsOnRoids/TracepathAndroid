@@ -9,7 +9,7 @@ buildscript {
             mavenPublishGradlePlugin: '0.6.0',
             junit4                  : '4.1.2',
             testSupport             : '1.0.2',
-            assertj                 : '3.11.1'
+            assertj                 : '2.9.1'
     ]
 
     repositories {
