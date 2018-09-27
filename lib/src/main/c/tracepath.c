@@ -39,7 +39,7 @@
 
 #define getnameinfo_flags	NI_IDN
 #else
-#define getnameinfo_flags	0
+#define getnameinfo_flags    0
 #endif
 
 #ifndef SOL_IPV6
@@ -53,12 +53,11 @@
 #define IPV6_PMTUDISC_DO	3
 #endif
 
-#define MAX_HOPS_LIMIT		255
-#define MAX_HOPS_DEFAULT	30
+#define MAX_HOPS_LIMIT        255
+#define MAX_HOPS_DEFAULT    30
 
-struct hhistory
-{
-    int	hops;
+struct hhistory {
+    int hops;
     struct timeval sendtime;
 };
 
@@ -79,27 +78,24 @@ int no_resolve = 0;
 int show_both = 0;
 int mapped;
 
-#define HOST_COLUMN_SIZE	52
+#define HOST_COLUMN_SIZE    52
 
-struct probehdr
-{
+struct probehdr {
     __u32 ttl;
     struct timeval tv;
 };
 
-void data_wait(int fd)
-{
+void data_wait(int fd) {
     fd_set fds;
     struct timeval tv;
     FD_ZERO(&fds);
     FD_SET(fd, &fds);
     tv.tv_sec = 1;
     tv.tv_usec = 0;
-    select(fd+1, &fds, NULL, NULL, &tv);
+    select(fd + 1, &fds, NULL, NULL, &tv);
 }
 
-void print_host(const char *a, const char *b, int both, FILE* output)
-{
+void print_host(const char *a, const char *b, int both, FILE *output) {
     int plen;
     plen = fprintf(output, "%s", a);
     if (both)
@@ -109,11 +105,15 @@ void print_host(const char *a, const char *b, int both, FILE* output)
     fprintf(output, "%*s", HOST_COLUMN_SIZE - plen, "");
 }
 
+void fperror(FILE *output, const char *message) {
+    fprintf(output, "%s: %s", message, strerror(errno));
+}
+
 ssize_t recverr(int fd, struct addrinfo *ai, int ttl, FILE *output) {
     ssize_t res;
     struct probehdr rcvbuf;
     char cbuf[512];
-    struct iovec  iov;
+    struct iovec iov;
     struct msghdr msg;
     struct cmsghdr *cmsg;
     struct sock_extended_err *e;
@@ -131,7 +131,7 @@ ssize_t recverr(int fd, struct addrinfo *ai, int ttl, FILE *output) {
     memset(&rcvbuf, -1, sizeof(rcvbuf));
     iov.iov_base = &rcvbuf;
     iov.iov_len = sizeof(rcvbuf);
-    msg.msg_name = (__u8*)&addr;
+    msg.msg_name = (__u8 *) &addr;
     msg.msg_namelen = sizeof(addr);
     msg.msg_iov = &iov;
     msg.msg_iovlen = 1;
@@ -157,10 +157,10 @@ ssize_t recverr(int fd, struct addrinfo *ai, int ttl, FILE *output) {
     slot = -base_port;
     switch (ai->ai_family) {
         case AF_INET6:
-            slot += ntohs(((struct sockaddr_in6 *)&addr)->sin6_port);
+            slot += ntohs(((struct sockaddr_in6 *) &addr)->sin6_port);
             break;
         case AF_INET:
-            slot += ntohs(((struct sockaddr_in *)&addr)->sin_port);
+            slot += ntohs(((struct sockaddr_in *) &addr)->sin_port);
             break;
     }
 
@@ -182,9 +182,9 @@ ssize_t recverr(int fd, struct addrinfo *ai, int ttl, FILE *output) {
     for (cmsg = CMSG_FIRSTHDR(&msg); cmsg; cmsg = CMSG_NXTHDR(&msg, cmsg)) {
         switch (cmsg->cmsg_level) {
             case SOL_IPV6:
-                switch(cmsg->cmsg_type) {
+                switch (cmsg->cmsg_type) {
                     case IPV6_RECVERR:
-                        e = (struct sock_extended_err *)CMSG_DATA(cmsg);
+                        e = (struct sock_extended_err *) CMSG_DATA(cmsg);
                         break;
                     case IPV6_HOPLIMIT:
 #ifdef IPV6_2292HOPLIMIT
@@ -197,12 +197,12 @@ ssize_t recverr(int fd, struct addrinfo *ai, int ttl, FILE *output) {
                 }
                 break;
             case SOL_IP:
-                switch(cmsg->cmsg_type) {
+                switch (cmsg->cmsg_type) {
                     case IP_RECVERR:
-                        e = (struct sock_extended_err *)CMSG_DATA(cmsg);
+                        e = (struct sock_extended_err *) CMSG_DATA(cmsg);
                         break;
                     case IP_TTL:
-                        rethops = *(__u8*)CMSG_DATA(cmsg);
+                        rethops = *(__u8 *) CMSG_DATA(cmsg);
                         break;
                     default:
                         fprintf(output, "cmsg4:%d\n ", cmsg->cmsg_type);
@@ -218,10 +218,10 @@ ssize_t recverr(int fd, struct addrinfo *ai, int ttl, FILE *output) {
     else if (e->ee_origin == SO_EE_ORIGIN_ICMP6 ||
              e->ee_origin == SO_EE_ORIGIN_ICMP) {
         char abuf[NI_MAXHOST];
-        struct sockaddr *sa = (struct sockaddr *)(e + 1);
+        struct sockaddr *sa = (struct sockaddr *) (e + 1);
         socklen_t salen;
 
-        if (sndhops>0)
+        if (sndhops > 0)
             fprintf(output, "%2d:  ", sndhops);
         else
             fprintf(output, "%2d?: ", ttl);
@@ -259,18 +259,18 @@ ssize_t recverr(int fd, struct addrinfo *ai, int ttl, FILE *output) {
     }
 
     if (rettv) {
-        int diff = (tv.tv_sec-rettv->tv_sec)*1000000+(tv.tv_usec-rettv->tv_usec);
-        fprintf(output, "%3d.%03dms ", diff/1000, diff%1000);
+        int diff = (tv.tv_sec - rettv->tv_sec) * 1000000 + (tv.tv_usec - rettv->tv_usec);
+        fprintf(output, "%3d.%03dms ", diff / 1000, diff % 1000);
         if (broken_router)
             fprintf(output, "(This broken router returned corrupted payload) ");
     }
 
-    if (rethops<=64)
-        rethops = 65-rethops;
-    else if (rethops<=128)
-        rethops = 129-rethops;
+    if (rethops <= 64)
+        rethops = 65 - rethops;
+    else if (rethops <= 128)
+        rethops = 129 - rethops;
     else
-        rethops = 256-rethops;
+        rethops = 256 - rethops;
 
     switch (e->ee_errno) {
         case ETIMEDOUT:
@@ -283,7 +283,7 @@ ssize_t recverr(int fd, struct addrinfo *ai, int ttl, FILE *output) {
             break;
         case ECONNREFUSED:
             fprintf(output, "reached\n");
-            hops_to = sndhops<0 ? ttl : sndhops;
+            hops_to = sndhops < 0 ? ttl : sndhops;
             hops_from = rethops;
             return 0;
         case EPROTO:
@@ -296,10 +296,10 @@ ssize_t recverr(int fd, struct addrinfo *ai, int ttl, FILE *output) {
                 (e->ee_origin == SO_EE_ORIGIN_ICMP6 &&
                  e->ee_type == 3 &&
                  e->ee_code == 0)) {
-                if (rethops>=0) {
-                    if (sndhops>=0 && rethops != sndhops)
+                if (rethops >= 0) {
+                    if (sndhops >= 0 && rethops != sndhops)
                         fprintf(output, "asymm %2d ", rethops);
-                    else if (sndhops<0 && rethops != ttl)
+                    else if (sndhops < 0 && rethops != ttl)
                         fprintf(output, "asymm %2d ", rethops);
                 }
                 fprintf(output, "\n");
@@ -316,46 +316,45 @@ ssize_t recverr(int fd, struct addrinfo *ai, int ttl, FILE *output) {
         default:
             fprintf(output, "\n");
             errno = e->ee_errno;
-            perror("NET ERROR");
+            fperror(output, "NET ERROR");
             return 0;
     }
     goto restart;
 }
 
-ssize_t probe_ttl(int fd, struct addrinfo *ai, uint32_t ttl, FILE *output)
-{
+ssize_t probe_ttl(int fd, struct addrinfo *ai, uint32_t ttl, FILE *output) {
     int i;
     struct probehdr *hdr = pktbuf;
 
     memset(pktbuf, 0, mtu);
     restart:
-    for (i=0; i<10; i++) {
+    for (i = 0; i < 10; i++) {
         ssize_t res;
 
         hdr->ttl = ttl;
         switch (ai->ai_family) {
             case AF_INET6:
-                ((struct sockaddr_in6 *)&target)->sin6_port = htons(base_port + hisptr);
+                ((struct sockaddr_in6 *) &target)->sin6_port = htons(base_port + hisptr);
                 break;
             case AF_INET:
-                ((struct sockaddr_in *)&target)->sin_port = htons(base_port + hisptr);
+                ((struct sockaddr_in *) &target)->sin_port = htons(base_port + hisptr);
                 break;
         }
         gettimeofday(&hdr->tv, NULL);
         his[hisptr].hops = ttl;
         his[hisptr].sendtime = hdr->tv;
-        if (sendto(fd, pktbuf, mtu-overhead, 0, (struct sockaddr *)&target, targetlen) > 0)
+        if (sendto(fd, pktbuf, mtu - overhead, 0, (struct sockaddr *) &target, targetlen) > 0)
             break;
         res = recverr(fd, ai, ttl, output);
         his[hisptr].hops = 0;
-        if (res==0)
+        if (res == 0)
             return 0;
         if (res > 0)
             goto restart;
     }
     hisptr = (hisptr + 1) & 63;
 
-    if (i<10) {
+    if (i < 10) {
         data_wait(fd);
         if (recv(fd, pktbuf, mtu, MSG_DONTWAIT) > 0) {
             fprintf(output, "%2d?: reply received 8)\n", ttl);
@@ -368,16 +367,7 @@ ssize_t probe_ttl(int fd, struct addrinfo *ai, uint32_t ttl, FILE *output)
     return 0;
 }
 
-static void usage(FILE *output) __attribute((noreturn));
-
-static void usage(FILE *output)
-{
-    fprintf(output, "Usage: tracepath [-4] [-6] [-n] [-b] [-l <len>] [-p port] <destination>\n");
-    exit(-1);
-}
-
-int tracepath_main(char *destination, uint16_t port, FILE *output)
-{
+int tracepath_main(char *destination, uint16_t port, FILE *output) {
     struct addrinfo hints = {
             .ai_family = AF_UNSPEC,
             .ai_socktype = SOCK_DGRAM,
@@ -420,7 +410,7 @@ int tracepath_main(char *destination, uint16_t port, FILE *output)
         break;
     }
     if (fd < 0) {
-        perror("socket/connect");
+        fperror(output, "socket/connect");
         exit(1);
     }
 
@@ -436,12 +426,12 @@ int tracepath_main(char *destination, uint16_t port, FILE *output)
             if (setsockopt(fd, SOL_IPV6, IPV6_MTU_DISCOVER, &on, sizeof(on)) &&
                 (on = IPV6_PMTUDISC_DO,
                         setsockopt(fd, SOL_IPV6, IPV6_MTU_DISCOVER, &on, sizeof(on)))) {
-                perror("IPV6_MTU_DISCOVER");
+                fperror(output, "IPV6_MTU_DISCOVER");
                 exit(1);
             }
             on = 1;
             if (setsockopt(fd, SOL_IPV6, IPV6_RECVERR, &on, sizeof(on))) {
-                perror("IPV6_RECVERR");
+                fperror(output, "IPV6_RECVERR");
                 exit(1);
             }
             if (
@@ -452,10 +442,10 @@ setsockopt(fd, SOL_IPV6, IPV6_2292HOPLIMIT, &on, sizeof(on))
                 setsockopt(fd, SOL_IPV6, IPV6_HOPLIMIT, &on, sizeof(on))
 #endif
                     ) {
-                perror("IPV6_HOPLIMIT");
+                fperror(output, "IPV6_HOPLIMIT");
                 exit(1);
             }
-            if (!IN6_IS_ADDR_V4MAPPED(&(((struct sockaddr_in6 *)&target)->sin6_addr)))
+            if (!IN6_IS_ADDR_V4MAPPED(&(((struct sockaddr_in6 *) &target)->sin6_addr)))
                 break;
             mapped = 1;
             /*FALLTHROUGH*/
@@ -468,23 +458,23 @@ setsockopt(fd, SOL_IPV6, IPV6_2292HOPLIMIT, &on, sizeof(on))
 
             on = IP_PMTUDISC_DO;
             if (setsockopt(fd, SOL_IP, IP_MTU_DISCOVER, &on, sizeof(on))) {
-                perror("IP_MTU_DISCOVER");
+                fperror(output, "IP_MTU_DISCOVER");
                 exit(1);
             }
             on = 1;
             if (setsockopt(fd, SOL_IP, IP_RECVERR, &on, sizeof(on))) {
-                perror("IP_RECVERR");
+                fperror(output, "IP_RECVERR");
                 exit(1);
             }
             if (setsockopt(fd, SOL_IP, IP_RECVTTL, &on, sizeof(on))) {
-                perror("IP_RECVTTL");
+                fperror(output, "IP_RECVTTL");
                 exit(1);
             }
     }
 
     pktbuf = malloc(mtu);
     if (!pktbuf) {
-        perror("malloc");
+        fperror(output, "malloc");
         exit(1);
     }
 
@@ -496,7 +486,7 @@ setsockopt(fd, SOL_IPV6, IPV6_2292HOPLIMIT, &on, sizeof(on))
         switch (ai->ai_family) {
             case AF_INET6:
                 if (setsockopt(fd, SOL_IPV6, IPV6_UNICAST_HOPS, &on, sizeof(on))) {
-                    perror("IPV6_UNICAST_HOPS");
+                    fperror(output, "IPV6_UNICAST_HOPS");
                     exit(1);
                 }
                 if (!mapped)
@@ -504,13 +494,13 @@ setsockopt(fd, SOL_IPV6, IPV6_2292HOPLIMIT, &on, sizeof(on))
                 /*FALLTHROUGH*/
             case AF_INET:
                 if (setsockopt(fd, SOL_IP, IP_TTL, &on, sizeof(on))) {
-                    perror("IP_TTL");
+                    fperror(output, "IP_TTL");
                     exit(1);
                 }
         }
 
         restart:
-        for (i=0; i<3; i++) {
+        for (i = 0; i < 3; i++) {
             size_t old_mtu;
 
             old_mtu = mtu;
@@ -532,9 +522,9 @@ setsockopt(fd, SOL_IPV6, IPV6_2292HOPLIMIT, &on, sizeof(on))
     freeaddrinfo(result);
 
     fprintf(output, "     Resume: pmtu %d ", mtu);
-    if (hops_to>=0)
+    if (hops_to >= 0)
         fprintf(output, "hops %d ", hops_to);
-    if (hops_from>=0)
+    if (hops_from >= 0)
         fprintf(output, "back %d ", hops_from);
     fprintf(output, "\n");
     exit(0);
