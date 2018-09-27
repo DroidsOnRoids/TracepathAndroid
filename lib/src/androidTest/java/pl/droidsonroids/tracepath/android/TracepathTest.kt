@@ -18,6 +18,16 @@ class TracepathTest {
     }
 
     @Test
+    fun testLocalhostTracepathWithPort() {
+        val output = Tracepath.tracepath("localhost", 1234)
+
+        val lines = output.lines()
+        assertThat(lines.size).isGreaterThanOrEqualTo(2)
+        assertThat(lines.last(String::isNotBlank).trim()).startsWith("Resume: pmtu")
+        assertThat(lines.first()).contains("localhost")
+    }
+
+    @Test
     fun testInvalidHostTracepath() {
         assertThatThrownBy { Tracepath.tracepath("test.invalid") }
             .isInstanceOf(IOException::class.java)
