@@ -394,7 +394,7 @@ int tracepath_main(char *destination, uint16_t port, FILE *output) {
     status = getaddrinfo(destination, pbuf, &hints, &result);
     if (status) {
         fprintf(output, "tracepath: %s: %s\n", destination, gai_strerror(status));
-        exit(1);
+        return 1;
     }
 
     fd = -1;
@@ -411,7 +411,7 @@ int tracepath_main(char *destination, uint16_t port, FILE *output) {
     }
     if (fd < 0) {
         fperror(output, "socket/connect");
-        exit(1);
+        return 1;
     }
 
     switch (ai->ai_family) {
@@ -427,12 +427,12 @@ int tracepath_main(char *destination, uint16_t port, FILE *output) {
                 (on = IPV6_PMTUDISC_DO,
                         setsockopt(fd, SOL_IPV6, IPV6_MTU_DISCOVER, &on, sizeof(on)))) {
                 fperror(output, "IPV6_MTU_DISCOVER");
-                exit(1);
+                return 1;
             }
             on = 1;
             if (setsockopt(fd, SOL_IPV6, IPV6_RECVERR, &on, sizeof(on))) {
                 fperror(output, "IPV6_RECVERR");
-                exit(1);
+                return 1;
             }
             if (
 #ifdef IPV6_RECVHOPLIMIT
@@ -443,7 +443,7 @@ setsockopt(fd, SOL_IPV6, IPV6_2292HOPLIMIT, &on, sizeof(on))
 #endif
                     ) {
                 fperror(output, "IPV6_HOPLIMIT");
-                exit(1);
+                return 1;
             }
             if (!IN6_IS_ADDR_V4MAPPED(&(((struct sockaddr_in6 *) &target)->sin6_addr)))
                 break;
@@ -459,23 +459,23 @@ setsockopt(fd, SOL_IPV6, IPV6_2292HOPLIMIT, &on, sizeof(on))
             on = IP_PMTUDISC_DO;
             if (setsockopt(fd, SOL_IP, IP_MTU_DISCOVER, &on, sizeof(on))) {
                 fperror(output, "IP_MTU_DISCOVER");
-                exit(1);
+                return 1;
             }
             on = 1;
             if (setsockopt(fd, SOL_IP, IP_RECVERR, &on, sizeof(on))) {
                 fperror(output, "IP_RECVERR");
-                exit(1);
+                return 1;
             }
             if (setsockopt(fd, SOL_IP, IP_RECVTTL, &on, sizeof(on))) {
                 fperror(output, "IP_RECVTTL");
-                exit(1);
+                return 1;
             }
     }
 
     pktbuf = malloc(mtu);
     if (!pktbuf) {
         fperror(output, "malloc");
-        exit(1);
+        return 1;
     }
 
     for (ttl = 1; ttl <= max_hops; ttl++) {
@@ -487,7 +487,7 @@ setsockopt(fd, SOL_IPV6, IPV6_2292HOPLIMIT, &on, sizeof(on))
             case AF_INET6:
                 if (setsockopt(fd, SOL_IPV6, IPV6_UNICAST_HOPS, &on, sizeof(on))) {
                     fperror(output, "IPV6_UNICAST_HOPS");
-                    exit(1);
+                    return 1;
                 }
                 if (!mapped)
                     break;
@@ -495,7 +495,7 @@ setsockopt(fd, SOL_IPV6, IPV6_2292HOPLIMIT, &on, sizeof(on))
             case AF_INET:
                 if (setsockopt(fd, SOL_IP, IP_TTL, &on, sizeof(on))) {
                     fperror(output, "IP_TTL");
-                    exit(1);
+                    return 1;
                 }
         }
 
@@ -516,21 +516,21 @@ setsockopt(fd, SOL_IPV6, IPV6_2292HOPLIMIT, &on, sizeof(on))
         if (res < 0)
             fprintf(output, "%2d:  no reply\n", ttl);
     }
-    fprintf(output, "     Too many hops: pmtu %d\n", mtu);
+    fprintf(output, "     Too many hops: pmtu %zu\n", mtu);
 
     done:
     freeaddrinfo(result);
 
-    fprintf(output, "     Resume: pmtu %d ", mtu);
+    fprintf(output, "     Resume: pmtu %zu ", mtu);
     if (hops_to >= 0)
         fprintf(output, "hops %d ", hops_to);
     if (hops_from >= 0)
         fprintf(output, "back %d ", hops_from);
     fprintf(output, "\n");
-    exit(0);
+    return 0;
 
     pktlen_error:
     fprintf(output, "Error: pktlen must be > %d and <= %d\n",
             overhead, INT_MAX);
-    exit(1);
+    return 1;
 }

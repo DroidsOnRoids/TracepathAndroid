@@ -8,4 +8,4 @@ void throwErrnoException(JNIEnv *env, char *functionName, int errnoNumber);
 
 int tracepath_main(char *destination, uint16_t port, FILE *output);
 
-__noreturn void perform_tracepath(JNIEnv *env, jstring jDestination, jint port, int fd);
+int perform_tracepath(JNIEnv *env, jstring jDestination, jint port, int fd);
