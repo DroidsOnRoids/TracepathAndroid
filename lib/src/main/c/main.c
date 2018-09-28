@@ -9,8 +9,7 @@
 
 jstring JNICALL Java_pl_droidsonroids_tracepath_android_Tracepath_tracepath(JNIEnv *env, __unused jclass type, jstring jDestination, jint port) {
     int pipefd[2];
-    int res = pipe(pipefd);
-    if (res != 0) {
+    if (pipe(pipefd) != 0) {
         throwErrnoException(env, "pipe", errno);
         return NULL;
     }
@@ -18,8 +17,10 @@ jstring JNICALL Java_pl_droidsonroids_tracepath_android_Tracepath_tracepath(JNIE
     pid_t pid = fork();
     if (pid == 0) {
         close(pipefd[0]);
-        perform_tracepath(env, jDestination, port, pipefd[1]);
-    } else {
+        int return_code = perform_tracepath(env, jDestination, port, pipefd[1]);
+        close(pipefd[1]);
+        _exit(return_code);
+    } else if (pid > 0) {
         close(pipefd[1]);
 
         char output[MAX_OUTPUT_LENGTH + 1];
@@ -52,10 +53,15 @@ jstring JNICALL Java_pl_droidsonroids_tracepath_android_Tracepath_tracepath(JNIE
         }
 
         return (*env)->NewStringUTF(env, output);
+    } else {
+        throwErrnoException(env, "fork", errno);
+        close(pipefd[0]);
+        close(pipefd[1]);
+        return NULL;
     }
 }
 
-__noreturn void perform_tracepath(JNIEnv *env, jstring jDestination, jint port, int fd) {
+int perform_tracepath(JNIEnv *env, jstring jDestination, jint port, int fd) {
     char destination[HOST_NAME_MAX + 1];
 
     jsize destination_length = (*env)->GetStringUTFLength(env, jDestination);
@@ -68,9 +74,10 @@ __noreturn void perform_tracepath(JNIEnv *env, jstring jDestination, jint port, 
 
     FILE *output = fdopen(fd, "w");
     if (output == NULL) {
-        exit(EXIT_FAILURE);
+        return EXIT_FAILURE;
     }
 
     int return_code = tracepath_main(destination, (uint16_t) port, output);
-    exit(return_code);
+    fclose(output);
+    return return_code;
 }
