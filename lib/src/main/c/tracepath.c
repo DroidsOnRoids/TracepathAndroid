@@ -26,6 +26,7 @@
 #include <sys/time.h>
 #include <sys/uio.h>
 #include <arpa/inet.h>
+#include <time.h>
 
 #ifdef USE_IDN
 #include <locale.h>
@@ -58,7 +59,7 @@
 
 struct hhistory {
     int hops;
-    struct timeval sendtime;
+    struct timespec sendtime;
 };
 
 struct hhistory his[64];
@@ -82,7 +83,7 @@ int mapped;
 
 struct probehdr {
     __u32 ttl;
-    struct timeval tv;
+    struct timespec tv;
 };
 
 void data_wait(int fd) {
@@ -118,8 +119,8 @@ ssize_t recverr(int fd, struct addrinfo *ai, int ttl, FILE *output) {
     struct cmsghdr *cmsg;
     struct sock_extended_err *e;
     struct sockaddr_storage addr;
-    struct timeval tv;
-    struct timeval *rettv;
+    struct timespec tv;
+    struct timespec *rettv;
     int slot = 0;
     int rethops;
     int sndhops;
@@ -139,7 +140,7 @@ ssize_t recverr(int fd, struct addrinfo *ai, int ttl, FILE *output) {
     msg.msg_control = cbuf;
     msg.msg_controllen = sizeof(cbuf);
 
-    gettimeofday(&tv, NULL);
+    clock_gettime(CLOCK_MONOTONIC_RAW, &tv);
     res = recvmsg(fd, &msg, MSG_ERRQUEUE);
     if (res < 0) {
         if (errno == EAGAIN)
@@ -259,8 +260,8 @@ ssize_t recverr(int fd, struct addrinfo *ai, int ttl, FILE *output) {
     }
 
     if (rettv) {
-        int diff = (tv.tv_sec - rettv->tv_sec) * 1000000 + (tv.tv_usec - rettv->tv_usec);
-        fprintf(output, "%3d.%03dms ", diff / 1000, diff % 1000);
+        long diff_nanos = (tv.tv_sec - rettv->tv_sec) * 1000000000L + (tv.tv_nsec - rettv->tv_nsec);
+        fprintf(output, "%3ld.%06ldms ", diff_nanos / 1000000L, diff_nanos % 1000000L);
         if (broken_router)
             fprintf(output, "(This broken router returned corrupted payload) ");
     }
@@ -340,7 +341,7 @@ ssize_t probe_ttl(int fd, struct addrinfo *ai, uint32_t ttl, FILE *output) {
                 ((struct sockaddr_in *) &target)->sin_port = htons(base_port + hisptr);
                 break;
         }
-        gettimeofday(&hdr->tv, NULL);
+        clock_gettime(CLOCK_MONOTONIC_RAW, &hdr->tv);
         his[hisptr].hops = ttl;
         his[hisptr].sendtime = hdr->tv;
         if (sendto(fd, pktbuf, mtu - overhead, 0, (struct sockaddr *) &target, targetlen) > 0)
